@@ -93,6 +93,3 @@ This app is optimized for deployment on platforms that support WebSockets, such 
 3. Set the **Start Command** to `npm start`.
 4. Add your `DATABASE_URL` and `JWT_SECRET` as Environment Variables in Render.
    > **Note:** Ensure your Supabase `DATABASE_URL` uses the **Connection Pooler** string (usually port `6543`) since Render environments may not fully support the IPv6 direct connection.
-
-## License
-MIT License
