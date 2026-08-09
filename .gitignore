@@ -1,0 +1,7 @@
+.env
+node_modules/
+talq.db
+*.db
+*.db-shm
+*.db-wal
+npm-debug.log*
