@@ -427,8 +427,8 @@
   overlay.className = 'sidebar-overlay';
   document.body.appendChild(overlay);
 
-  function openSidebarFn()   { sidebar.classList.add('open'); }
-  function closeSidebarFn()  { sidebar.classList.remove('open'); }
+  function openSidebarFn()   { sidebar.classList.add('open'); overlay.classList.add('show'); }
+  function closeSidebarFn()  { sidebar.classList.remove('open'); overlay.classList.remove('show'); }
   function toggleSidebarFn() { sidebar.classList.contains('open') ? closeSidebarFn() : openSidebarFn(); }
 
   menuBtn.addEventListener('click', toggleSidebarFn);

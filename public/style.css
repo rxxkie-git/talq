@@ -761,3 +761,37 @@ select option { background: var(--bg-card); color: var(--text-primary); }
 .sidebar-close-btn {
   display: flex;
 }
+
+/* ─── RESPONSIVE / MOBILE ────────────────────────────────── */
+@media (max-width: 768px) {
+  .join-card {
+    padding: 32px 24px;
+    width: 90%;
+  }
+
+  .sidebar {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    z-index: 20;
+    height: 100%;
+  }
+
+  .msg-bubble {
+    max-width: 85%;
+  }
+}
+
+@media (min-width: 769px) {
+  .sidebar {
+    width: var(--sidebar-w) !important;
+    border-right: 1px solid var(--border) !important;
+    transition: background var(--transition);
+  }
+  .menu-btn {
+    display: none !important;
+  }
+  .sidebar-overlay {
+    display: none !important;
+  }
+}
+
