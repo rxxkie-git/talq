@@ -12,14 +12,21 @@
   const joinForm          = document.getElementById('joinForm');
   const usernameInput     = document.getElementById('usernameInput');
   const passwordInput     = document.getElementById('passwordInput');
+  const passwordConfirmGroup = document.getElementById('passwordConfirmGroup');
+  const passwordConfirmInput = document.getElementById('passwordConfirmInput');
   const passwordToggle    = document.getElementById('passwordToggle');
   const eyeOpen           = document.getElementById('eyeOpen');
   const eyeClosed         = document.getElementById('eyeClosed');
+  const dmList            = document.getElementById('dmList');
   const loginError        = document.getElementById('loginError');
   const joinBtn           = document.getElementById('joinBtn');
   const joinBtnText       = document.getElementById('joinBtnText');
   const joinBtnArrow      = document.getElementById('joinBtnArrow');
   const joinBtnSpinner    = document.getElementById('joinBtnSpinner');
+  const toggleAuthBtn     = document.getElementById('toggleAuthBtn');
+  const toggleTextSpan    = document.getElementById('toggleTextSpan');
+  const joinTitle         = document.querySelector('.join-title');
+  const joinSubtitle      = document.querySelector('.join-subtitle');
   const messagesInner     = document.getElementById('messagesInner');
   const messageForm       = document.getElementById('messageForm');
   const messageInput      = document.getElementById('messageInput');
@@ -70,9 +77,10 @@
   }
 
   // ── State ────────────────────────────────────────────────
-  let socket      = null;
+  let socket;
   let myUsername  = '';
-  let currentRoom = 'General';
+  let myUserId = '';
+  let currentRoom = null;
   let typingTimer = null;
   let isTyping    = false;
   let typingUsers = new Set();
@@ -139,30 +147,70 @@
     else joinBtnSpinner.classList.remove('spin');
   }
 
+  // ── Auth Mode Toggle ─────────────────────────────────────
+  let isSignup = false;
+  toggleAuthBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    isSignup = !isSignup;
+    if (isSignup) {
+      joinTitle.textContent = 'Create an account';
+      joinSubtitle.textContent = 'Sign up to get started';
+      joinBtnText.textContent = 'Sign Up';
+      toggleAuthBtn.textContent = 'Sign in';
+      toggleTextSpan.textContent = 'Already have an account? ';
+      passwordConfirmGroup.classList.remove('hidden');
+      passwordConfirmInput.setAttribute('required', 'true');
+    } else {
+      joinTitle.textContent = 'Welcome back';
+      joinSubtitle.textContent = 'Sign in to start chatting';
+      joinBtnText.textContent = 'Sign In';
+      toggleAuthBtn.textContent = 'Sign up';
+      toggleTextSpan.textContent = 'Don\'t have an account? ';
+      passwordConfirmGroup.classList.add('hidden');
+      passwordConfirmInput.removeAttribute('required');
+    }
+    clearLoginError();
+  });
+
   // ── Auto-login if token exists ───────────────────────────
   window.addEventListener('DOMContentLoaded', () => {
     const savedToken    = localStorage.getItem('talq-token');
     const savedUsername = localStorage.getItem('talq-username');
-    if (savedToken && savedUsername) {
+    const savedUserId   = localStorage.getItem('talq-userId');
+    if (savedToken && savedUsername && savedUserId && savedUserId !== 'null') {
       myUsername = savedUsername;
+      myUserId = savedUserId;
       launchChat(savedToken);
     } else {
+      // Force re-login if any data is missing
+      localStorage.removeItem('talq-token');
+      localStorage.removeItem('talq-username');
+      localStorage.removeItem('talq-userId');
       usernameInput.focus();
     }
   });
 
-  // ── Login Form Submit ────────────────────────────────────
+  // ── Login / Signup Form Submit ───────────────────────────
   joinForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
+    const confirmPassword = passwordConfirmInput.value;
+
     if (!username || !password) return;
+
+    if (isSignup && password !== confirmPassword) {
+      showLoginError('Passwords do not match.');
+      return;
+    }
 
     clearLoginError();
     setLoginLoading(true);
 
+    const endpoint = isSignup ? '/api/signup' : '/api/login';
+
     try {
-      const res  = await fetch('/api/login', {
+      const res  = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -170,14 +218,21 @@
       const data = await res.json();
 
       if (!res.ok) {
-        showLoginError(data.error || 'Login failed. Please try again.');
+        showLoginError(data.error || 'Authentication failed. Please try again.');
         return;
       }
 
-      // Persist token
+      // Persist token and ID
       localStorage.setItem('talq-token',    data.token);
       localStorage.setItem('talq-username', data.username);
+      localStorage.setItem('talq-userId',   data.id);
       myUsername = data.username;
+      myUserId = data.id;
+
+      // Start without a default room so they pick a DM channel
+      currentRoom = null;
+      currentRoomName.textContent = 'Welcome! Select a channel.';
+      messagesInner.innerHTML = '';
 
       launchChat(data.token);
     } catch {
@@ -216,14 +271,17 @@
     // Disconnect any previous socket
     if (socket) { socket.disconnect(); socket = null; }
 
-    socket = io({
-      transports: ['websocket', 'polling'],
-      auth: { token },
-    });
-
+    socket = io({ auth: { token } });
+    
     socket.on('connect', () => {
       setConnectionStatus(true);
-      socket.emit('join', { room: currentRoom });
+      if (currentRoom) {
+        socket.emit('join', { room: currentRoom });
+      }
+      
+      // Load friends and requests on initial connect to populate sidebar & badge
+      socket.emit('getFriends');
+      socket.emit('getFriendRequests');
     });
 
     socket.on('connect_error', (err) => {
@@ -408,18 +466,13 @@
     messageInput.focus();
   });
 
-  // ── Room Switching ───────────────────────────────────────
-  roomListEl.addEventListener('click', (e) => {
-    const item = e.target.closest('.room-item');
-    if (!item) return;
-    const room = item.dataset.room;
+  // ── Room Joining (Shared) ────────────────────────────────
+  function joinRoom(room, displayName) {
     if (room === currentRoom) return;
 
     document.querySelectorAll('.room-item').forEach(el => el.classList.remove('active'));
-    item.classList.add('active');
-
     currentRoom = room;
-    currentRoomName.textContent = room;
+    currentRoomName.textContent = displayName;
     headerSubtitle.textContent = 'Switching room…';
     typingUsers.clear();
     updateTypingBar();
@@ -428,7 +481,29 @@
 
     socket && socket.emit('join', { room });
     closeSidebarFn();
-    showToast(`📍 Joined #${room}`);
+    showToast(`📍 Joined ${displayName}`);
+  }
+
+  // ── Room Selection (Global) ──────────────────────────────
+  document.querySelectorAll('#roomList .room-item').forEach(el => {
+    el.addEventListener('click', () => {
+      el.classList.add('active');
+      const room = el.getAttribute('data-room');
+      joinRoom(room, room);
+    });
+  });
+
+  // ── Room Selection (DMs) ─────────────────────────────────
+  dmList.addEventListener('click', (e) => {
+    const li = e.target.closest('.room-item');
+    if (!li) return;
+    li.classList.add('active');
+    
+    const friendId = li.getAttribute('data-friend-id');
+    const friendName = li.getAttribute('data-friend-name');
+    const dmRoomId = 'dm_' + [myUserId, friendId].sort().join('_');
+    
+    joinRoom(dmRoomId, '@' + friendName);
   });
 
   // ── Emoji Picker ─────────────────────────────────────────
@@ -474,8 +549,10 @@
 
     localStorage.removeItem('talq-token');
     localStorage.removeItem('talq-username');
+    localStorage.removeItem('talq-userId');
     myUsername  = '';
-    currentRoom = 'General';
+    myUserId = '';
+    currentRoom = null;
     typingUsers.clear();
 
     messagesInner.innerHTML = '<div class="welcome-msg" id="welcomeMsg"><div class="welcome-icon">👋</div><p>Welcome! Say something to start the conversation.</p></div>';
@@ -602,11 +679,15 @@
 
   function renderFriendsList(friends) {
     friendsList.innerHTML = '';
+    dmList.innerHTML = '';
+
     if (!friends.length) {
       friendsList.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">You have no friends yet.</p>';
       return;
     }
+    
     friends.forEach(f => {
+      // 1. Modal Item
       const li = document.createElement('li');
       li.className = 'user-list-item';
       li.innerHTML = `
@@ -619,6 +700,66 @@
         </div>
       `;
       friendsList.appendChild(li);
+
+      // 2. Sidebar DM Accordion
+      const friendGroup = document.createElement('div');
+      friendGroup.className = 'friend-group';
+
+      const friendHeader = document.createElement('div');
+      friendHeader.className = 'friend-header';
+      friendHeader.innerHTML = `
+        <div class="user-avatar-xs" style="background:${getAvatarColor(f.username)}; color:white; width:20px; height:20px; font-size:10px; display:flex; align-items:center; justify-content:center; border-radius:50%;">${getInitials(f.username)}</div>
+        <span>${escapeHtml(f.username)}</span>
+        <span class="chevron" style="margin-left:auto; transition: transform 0.2s;">▼</span>
+      `;
+
+      const channelsContainer = document.createElement('div');
+      channelsContainer.className = 'friend-channels';
+
+      const channels = ['General', 'Tech', 'Gaming', 'Music', 'Random'];
+      
+      let hasActiveChannel = false;
+      channels.forEach(ch => {
+        const expectedRoomId = 'dm_' + [myUserId, f.id].sort().join('_') + '_' + ch.toLowerCase();
+        const chEl = document.createElement('div');
+        chEl.className = 'friend-channel-item';
+        if (currentRoom === expectedRoomId) {
+          chEl.classList.add('active');
+          hasActiveChannel = true;
+        }
+        chEl.innerHTML = `<span class="room-icon">#</span><span>${ch}</span>`;
+        
+        chEl.addEventListener('click', () => {
+          document.querySelectorAll('.friend-channel-item').forEach(el => el.classList.remove('active'));
+          chEl.classList.add('active');
+          joinRoom(expectedRoomId, `@${f.username} - #${ch}`);
+        });
+        
+        channelsContainer.appendChild(chEl);
+      });
+
+      if (hasActiveChannel) {
+        friendHeader.classList.add('expanded');
+        channelsContainer.classList.add('open');
+        friendHeader.querySelector('.chevron').style.transform = 'rotate(-180deg)';
+      }
+
+      friendHeader.addEventListener('click', () => {
+        const isOpen = channelsContainer.classList.contains('open');
+        if (isOpen) {
+          channelsContainer.classList.remove('open');
+          friendHeader.classList.remove('expanded');
+          friendHeader.querySelector('.chevron').style.transform = 'rotate(0deg)';
+        } else {
+          channelsContainer.classList.add('open');
+          friendHeader.classList.add('expanded');
+          friendHeader.querySelector('.chevron').style.transform = 'rotate(-180deg)';
+        }
+      });
+
+      friendGroup.appendChild(friendHeader);
+      friendGroup.appendChild(channelsContainer);
+      dmList.appendChild(friendGroup);
     });
   }
 

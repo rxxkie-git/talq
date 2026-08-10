@@ -6,7 +6,7 @@ const path      = require('path');
 const jwt       = require('jsonwebtoken');
 
 const { 
-  verifyUser, saveMessage, getRoomHistory,
+  verifyUser, createUser, saveMessage, getRoomHistory,
   getAllUsers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends
 } = require('./database');
 
@@ -44,9 +44,37 @@ app.post('/api/login', async (req, res) => {
     );
 
     console.log(`[AUTH] ${user.username} logged in`);
-    return res.json({ token, username: user.username });
+    return res.json({ token, username: user.username, id: user.id });
   } catch (err) {
     console.error('[AUTH] Login error:', err.message);
+    return res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// ── REST: Signup ─────────────────────────────────────────
+app.post('/api/signup', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+
+  try {
+    const user = await createUser(username, password);
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRY }
+    );
+
+    console.log(`[AUTH] ${user.username} signed up`);
+    return res.json({ token, username: user.username, id: user.id });
+  } catch (err) {
+    if (err.message === 'Username already exists') {
+      return res.status(409).json({ error: 'Username is already taken.' });
+    }
+    console.error('[AUTH] Signup error:', err.message);
     return res.status(500).json({ error: 'Server error. Please try again.' });
   }
 });
@@ -94,6 +122,7 @@ io.on('connection', (socket) => {
 
     socket.room = room || 'General';
     socket.join(socket.room);
+    console.log(`[DEBUG] ${socket.username} joined room ${socket.room}`);
 
     users[socket.id] = {
       username: socket.username,
@@ -137,6 +166,7 @@ io.on('connection', (socket) => {
 
     // Broadcast to room
     io.to(msgData.room).emit('chatMessage', msgData);
+    console.log(`[DEBUG] ${msgData.username} sent message to room ${msgData.room}`);
     console.log(`[MSG] [${msgData.room}] ${msgData.username}: ${msgData.message}`);
   });
 
