@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "seed": "node seed.js",
+    "export-users": "node export_users.js"
   },
   "keywords": [],
   "author": "",

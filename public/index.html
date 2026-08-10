@@ -123,6 +123,14 @@
             Online
           </p>
         </div>
+        <button id="friendsBtn" class="icon-btn" title="Friends">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+        </button>
         <button id="logoutBtn" class="icon-btn" title="Leave chat">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -219,6 +227,37 @@
       </footer>
 
     </main>
+  </div>
+
+  <!-- Friends Modal -->
+  <div id="friendsModal" class="modal hidden">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2>Friends & Users</h2>
+        <button id="closeFriendsModal" class="icon-btn" title="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="modal-tabs">
+        <button class="tab-btn active" data-tab="myFriends">My Friends</button>
+        <button class="tab-btn" data-tab="addFriends">Find Users</button>
+        <button class="tab-btn" data-tab="friendRequests">Requests <span id="reqBadge" class="badge hidden">0</span></button>
+      </div>
+      <div class="modal-body">
+        <div id="tab-myFriends" class="tab-content active">
+          <ul id="friendsList" class="user-list-large"></ul>
+        </div>
+        <div id="tab-addFriends" class="tab-content hidden">
+          <ul id="allUsersList" class="user-list-large"></ul>
+        </div>
+        <div id="tab-friendRequests" class="tab-content hidden">
+          <ul id="requestsList" class="user-list-large"></ul>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Notification toast -->

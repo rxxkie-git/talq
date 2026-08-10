@@ -44,6 +44,16 @@
   const iconMoon          = document.getElementById('iconMoon');
   const iconSun           = document.getElementById('iconSun');
 
+  const friendsBtn        = document.getElementById('friendsBtn');
+  const friendsModal      = document.getElementById('friendsModal');
+  const closeFriendsModal = document.getElementById('closeFriendsModal');
+  const tabBtns           = document.querySelectorAll('.tab-btn');
+  const tabContents       = document.querySelectorAll('.tab-content');
+  const friendsList       = document.getElementById('friendsList');
+  const allUsersList      = document.getElementById('allUsersList');
+  const requestsList      = document.getElementById('requestsList');
+  const reqBadge          = document.getElementById('reqBadge');
+
   // ── Theme Toggle ─────────────────────────────────────────
   const html = document.documentElement;
   applyTheme(localStorage.getItem('talq-theme') || 'dark');
@@ -263,6 +273,25 @@
 
     socket.on('stopTyping', ({ username }) => {
       typingUsers.delete(username); updateTypingBar();
+    });
+
+    // ── Friends Events ──
+    socket.on('allUsers', renderAllUsers);
+    socket.on('friendRequests', renderFriendRequests);
+    socket.on('friendsList', renderFriendsList);
+
+    socket.on('friendRequestUpdate', () => {
+      socket.emit('getFriendRequests');
+      showToast('You have a new friend request update!');
+    });
+    
+    socket.on('friendsUpdate', () => {
+      socket.emit('getFriends');
+      socket.emit('getUsers');
+    });
+
+    socket.on('friendRequestSent', () => {
+      showToast('Friend request sent!');
     });
   }
 
@@ -484,4 +513,113 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
+
+  // ── Friends Modal Logic ─────────────────────────────────
+  friendsBtn.addEventListener('click', () => {
+    friendsModal.classList.remove('hidden');
+    if (socket) {
+      socket.emit('getFriends');
+      socket.emit('getUsers');
+      socket.emit('getFriendRequests');
+    }
+  });
+
+  closeFriendsModal.addEventListener('click', () => {
+    friendsModal.classList.add('hidden');
+  });
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active', 'hidden'));
+      tabContents.forEach(c => c.classList.add('hidden'));
+
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  function renderAllUsers(users) {
+    allUsersList.innerHTML = '';
+    if (!users.length) {
+      allUsersList.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">No other users found.</p>';
+      return;
+    }
+    users.forEach(u => {
+      const li = document.createElement('li');
+      li.className = 'user-list-item';
+      li.innerHTML = `
+        <div class="user-info-large">
+          <div class="user-avatar-sm" style="background:${getAvatarColor(u.username)}">${getInitials(u.username)}</div>
+          <div class="user-info-text">
+            <h4>${escapeHtml(u.username)}</h4>
+            <p>ID: ${u.id.substring(0, 8)}...</p>
+          </div>
+        </div>
+        <button class="action-btn" onclick="sendFriendReq('${u.id}')">Add Friend</button>
+      `;
+      allUsersList.appendChild(li);
+    });
+  }
+
+  window.sendFriendReq = function(receiverId) {
+    if (socket) socket.emit('sendFriendRequest', { receiverId });
+  };
+
+  function renderFriendRequests(requests) {
+    requestsList.innerHTML = '';
+    reqBadge.textContent = requests.length;
+    reqBadge.classList.toggle('hidden', requests.length === 0);
+
+    if (!requests.length) {
+      requestsList.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">No pending requests.</p>';
+      return;
+    }
+    requests.forEach(req => {
+      const li = document.createElement('li');
+      li.className = 'user-list-item';
+      li.innerHTML = `
+        <div class="user-info-large">
+          <div class="user-avatar-sm" style="background:${getAvatarColor(req.sender_username)}">${getInitials(req.sender_username)}</div>
+          <div class="user-info-text">
+            <h4>${escapeHtml(req.sender_username)}</h4>
+            <p>Wants to be friends</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="action-btn" onclick="respondReq('${req.request_id}', 'accepted')">Accept</button>
+          <button class="action-btn danger" onclick="respondReq('${req.request_id}', 'rejected')">Reject</button>
+        </div>
+      `;
+      requestsList.appendChild(li);
+    });
+  }
+
+  window.respondReq = function(requestId, status) {
+    if (socket) socket.emit('respondFriendRequest', { requestId, status });
+  };
+
+  function renderFriendsList(friends) {
+    friendsList.innerHTML = '';
+    if (!friends.length) {
+      friendsList.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">You have no friends yet.</p>';
+      return;
+    }
+    friends.forEach(f => {
+      const li = document.createElement('li');
+      li.className = 'user-list-item';
+      li.innerHTML = `
+        <div class="user-info-large">
+          <div class="user-avatar-sm" style="background:${getAvatarColor(f.username)}">${getInitials(f.username)}</div>
+          <div class="user-info-text">
+            <h4>${escapeHtml(f.username)}</h4>
+            <p>ID: ${f.id.substring(0, 8)}...</p>
+          </div>
+        </div>
+      `;
+      friendsList.appendChild(li);
+    });
+  }
+
 })();

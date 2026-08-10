@@ -5,7 +5,10 @@ const { Server } = require('socket.io');
 const path      = require('path');
 const jwt       = require('jsonwebtoken');
 
-const { verifyUser, saveMessage, getRoomHistory } = require('./database');
+const { 
+  verifyUser, saveMessage, getRoomHistory,
+  getAllUsers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends
+} = require('./database');
 
 const app    = express();
 const server = http.createServer(app);
@@ -96,6 +99,7 @@ io.on('connection', (socket) => {
       username: socket.username,
       room: socket.room,
       id: socket.id,
+      userId: socket.userId,
     };
 
     // Send DB message history to this user
@@ -143,6 +147,54 @@ io.on('connection', (socket) => {
 
   socket.on('stopTyping', ({ room }) => {
     socket.to(room || socket.room).emit('stopTyping', { username: socket.username });
+  });
+
+  // ── Friends & Users Events ───────────────────────────────
+  socket.on('getUsers', async () => {
+    try {
+      const allUsers = await getAllUsers(socket.userId);
+      socket.emit('allUsers', allUsers);
+    } catch(err) { console.error('[DB] getUsers error:', err.message); }
+  });
+
+  socket.on('sendFriendRequest', async ({ receiverId }) => {
+    try {
+      await sendFriendRequest(socket.userId, receiverId);
+      const receiverSocket = Object.values(users).find(u => u.userId === receiverId);
+      if (receiverSocket) {
+        io.to(receiverSocket.id).emit('friendRequestUpdate');
+      }
+      socket.emit('friendRequestSent');
+    } catch(err) { console.error('[DB] sendFriendRequest error:', err.message); }
+  });
+
+  socket.on('getFriendRequests', async () => {
+    try {
+      const requests = await getFriendRequests(socket.userId);
+      socket.emit('friendRequests', requests);
+    } catch(err) { console.error('[DB] getFriendRequests error:', err.message); }
+  });
+
+  socket.on('respondFriendRequest', async ({ requestId, status }) => {
+    try {
+      const senderId = await respondFriendRequest(requestId, socket.userId, status);
+      socket.emit('friendRequestUpdate');
+      socket.emit('friendsUpdate');
+      if (senderId) {
+        const senderSocket = Object.values(users).find(u => u.userId === senderId);
+        if (senderSocket) {
+          io.to(senderSocket.id).emit('friendRequestUpdate');
+          io.to(senderSocket.id).emit('friendsUpdate');
+        }
+      }
+    } catch(err) { console.error('[DB] respondFriendRequest error:', err.message); }
+  });
+
+  socket.on('getFriends', async () => {
+    try {
+      const friends = await getFriends(socket.userId);
+      socket.emit('friendsList', friends);
+    } catch(err) { console.error('[DB] getFriends error:', err.message); }
   });
 
   // Disconnect
