@@ -574,6 +574,12 @@
   function toggleSidebarFn() { sidebar.classList.contains('open') ? closeSidebarFn() : openSidebarFn(); }
 
   menuBtn.addEventListener('click', toggleSidebarFn);
+  
+  const dashMenuBtn = document.getElementById('dashMenuBtn');
+  if (dashMenuBtn) {
+    dashMenuBtn.addEventListener('click', toggleSidebarFn);
+  }
+
   overlay.addEventListener('click', closeSidebarFn);
 
   // ── Logout ────────────────────────────────────────────────

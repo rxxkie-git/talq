@@ -970,8 +970,8 @@ select option { background: var(--bg-card); color: var(--text-primary); }
 }
 
 .dashboard-header-inner {
-  min-height: 80px;
-  padding: 15px 30px;
+  min-height: 62px;
+  padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
