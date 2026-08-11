@@ -7,7 +7,7 @@ const jwt       = require('jsonwebtoken');
 
 const { 
   verifyUser, createUser, saveMessage, getRoomHistory,
-  getAllUsers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends
+  getAllUsers, searchUsers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends
 } = require('./database');
 
 const app    = express();
@@ -102,6 +102,7 @@ io.use((socket, next) => {
 
 // ── Track Connected Users ────────────────────────────────
 const users = {};
+const connectedUsers = {}; // userId -> Set of socketIds
 
 function getRoomUsers(room) {
   return Object.values(users).filter(u => u.room === room);
@@ -110,6 +111,13 @@ function getRoomUsers(room) {
 // ── Socket.IO Events ─────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`[+] ${socket.username} connected (${socket.id})`);
+
+  // Track global online status
+  if (!connectedUsers[socket.userId]) {
+    connectedUsers[socket.userId] = new Set();
+    io.emit('onlineStatusChanged', { userId: socket.userId, isOnline: true });
+  }
+  connectedUsers[socket.userId].add(socket.id);
 
   // User joins a room
   socket.on('join', ({ room }) => {
@@ -182,9 +190,16 @@ io.on('connection', (socket) => {
   // ── Friends & Users Events ───────────────────────────────
   socket.on('getUsers', async () => {
     try {
-      const allUsers = await getAllUsers(socket.userId);
-      socket.emit('allUsers', allUsers);
+      // Intentionally not fetching all users by default anymore as requested.
+      socket.emit('allUsers', []);
     } catch(err) { console.error('[DB] getUsers error:', err.message); }
+  });
+
+  socket.on('searchUsers', async ({ query }) => {
+    try {
+      const users = await searchUsers(socket.userId, query);
+      socket.emit('searchResults', users);
+    } catch(err) { console.error('[DB] searchUsers error:', err.message); }
   });
 
   socket.on('sendFriendRequest', async ({ receiverId }) => {
@@ -223,12 +238,24 @@ io.on('connection', (socket) => {
   socket.on('getFriends', async () => {
     try {
       const friends = await getFriends(socket.userId);
-      socket.emit('friendsList', friends);
+      const friendsWithStatus = friends.map(f => ({
+        ...f,
+        isOnline: !!connectedUsers[f.id]
+      }));
+      socket.emit('friendsList', friendsWithStatus);
     } catch(err) { console.error('[DB] getFriends error:', err.message); }
   });
 
   // Disconnect
   socket.on('disconnect', () => {
+    if (socket.userId && connectedUsers[socket.userId]) {
+      connectedUsers[socket.userId].delete(socket.id);
+      if (connectedUsers[socket.userId].size === 0) {
+        delete connectedUsers[socket.userId];
+        io.emit('onlineStatusChanged', { userId: socket.userId, isOnline: false });
+      }
+    }
+    
     if (socket.username && socket.room) {
       delete users[socket.id];
       socket.to(socket.room).emit('userEvent', {

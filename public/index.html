@@ -104,6 +104,21 @@
       </div>
 
       <div class="sidebar-section">
+        <p class="sidebar-label">Navigation</p>
+        <ul class="room-list" id="navList">
+          <li class="room-item active" id="navFriendsBtn" data-room="">
+            <span class="room-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+              </svg>
+            </span>
+            <span>Friends</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar-section">
         <p class="sidebar-label">Direct Messages</p>
         <ul class="room-list" id="dmList">
           <!-- Dynamically populated friends -->
@@ -124,14 +139,7 @@
             Online
           </p>
         </div>
-        <button id="friendsBtn" class="icon-btn" title="Friends">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-          </svg>
-        </button>
+        <!-- Removed Friends Modal Button, now in Nav -->
         <button id="logoutBtn" class="icon-btn" title="Leave chat">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -159,8 +167,34 @@
     <!-- Main chat area -->
     <main class="chat-main">
 
+      <!-- Friends Dashboard -->
+      <div id="friendsDashboard" class="friends-dashboard hidden">
+        <div class="dashboard-header-inner">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+          </svg>
+          <h2>Friends</h2>
+          <div class="dashboard-tabs">
+            <button class="dash-tab active" data-tab="online">Online</button>
+            <button class="dash-tab" data-tab="all">All</button>
+          </div>
+          <button class="add-friend-btn" id="openAddFriendModalDash">Add Friend</button>
+        </div>
+        
+        <div class="dashboard-content">
+          <p class="dashboard-subtitle">Online — <span id="dashOnlineCount">0</span></p>
+          <ul class="dashboard-list" id="dashOnlineList"></ul>
+          
+          <div id="dashOfflineSection">
+            <p class="dashboard-subtitle mt-4">Offline — <span id="dashOfflineCount">0</span></p>
+            <ul class="dashboard-list" id="dashOfflineList"></ul>
+          </div>
+        </div>
+      </div>
+
       <!-- Chat header -->
-      <header class="chat-header">
+      <header class="chat-header" id="chatHeader">
         <button id="menuBtn" class="icon-btn menu-btn" title="Toggle sidebar">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <line x1="3" y1="6" x2="21" y2="6"/>
@@ -173,6 +207,14 @@
           <p id="headerSubtitle" class="header-subtitle">Loading...</p>
         </div>
         <div class="header-actions">
+          <button id="openAddFriendModalTop" class="icon-btn" title="Add Friend" style="margin-right: 10px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <line x1="20" y1="8" x2="20" y2="14"></line>
+              <line x1="17" y1="11" x2="23" y2="11"></line>
+            </svg>
+          </button>
           <div class="connection-indicator" id="connectionIndicator">
             <span class="dot"></span>
             <span id="connectionText">Connecting…</span>
@@ -194,7 +236,7 @@
       <div class="typing-bar" id="typingBar"></div>
 
       <!-- Message input -->
-      <footer class="chat-footer">
+      <footer class="chat-footer" id="chatFooter">
         <form id="messageForm" class="message-form" autocomplete="off">
           <div class="input-row">
             <div class="input-area">
@@ -252,6 +294,10 @@
           <ul id="friendsList" class="user-list-large"></ul>
         </div>
         <div id="tab-addFriends" class="tab-content hidden">
+          <div class="search-bar" style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="userSearchInput" class="message-input" placeholder="Search for users..." style="flex: 1;" />
+            <button id="userSearchBtn" class="action-btn">Search</button>
+          </div>
           <ul id="allUsersList" class="user-list-large"></ul>
         </div>
         <div id="tab-friendRequests" class="tab-content hidden">

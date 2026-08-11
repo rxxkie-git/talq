@@ -6,7 +6,10 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 10000,
+  query_timeout: 5000
 });
 
 pool.on('error', (err) => {
@@ -73,6 +76,15 @@ async function getAllUsers(excludeUserId) {
   return res.rows;
 }
 
+async function searchUsers(excludeUserId, query) {
+  if (!query) return [];
+  const res = await pool.query(
+    'SELECT id, username FROM users WHERE id != $1 AND username ILIKE $2 LIMIT 50',
+    [excludeUserId, `%${query}%`]
+  );
+  return res.rows;
+}
+
 async function sendFriendRequest(senderId, receiverId) {
   const check = await pool.query(
     'SELECT 1 FROM friends WHERE (user_id1 = $1 AND user_id2 = $2) OR (user_id1 = $3 AND user_id2 = $4)',
@@ -127,6 +139,6 @@ async function getFriends(userId) {
 
 module.exports = {
   verifyUser, createUser, saveMessage, getRoomHistory,
-  getAllUsers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends,
+  getAllUsers, searchUsers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends,
   initDb
 };

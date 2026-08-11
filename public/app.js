@@ -51,7 +51,16 @@
   const iconMoon          = document.getElementById('iconMoon');
   const iconSun           = document.getElementById('iconSun');
 
-  const friendsBtn        = document.getElementById('friendsBtn');
+  const navFriendsBtn     = document.getElementById('navFriendsBtn');
+  const friendsDashboard  = document.getElementById('friendsDashboard');
+  const chatHeader        = document.getElementById('chatHeader');
+  const messagesArea      = document.getElementById('messagesArea');
+
+  const chatFooter        = document.getElementById('chatFooter');
+  const dashOnlineList    = document.getElementById('dashOnlineList');
+  const dashOfflineList   = document.getElementById('dashOfflineList');
+  const dashOnlineCount   = document.getElementById('dashOnlineCount');
+  const dashOfflineCount  = document.getElementById('dashOfflineCount');
   const friendsModal      = document.getElementById('friendsModal');
   const closeFriendsModal = document.getElementById('closeFriendsModal');
   const tabBtns           = document.querySelectorAll('.tab-btn');
@@ -244,24 +253,20 @@
 
   // ── Launch Chat UI ───────────────────────────────────────
   function launchChat(token) {
-    currentRoom = 'General';
+    currentRoom = null;
 
     // Update sidebar user info
     currentUserName.textContent    = myUsername;
     currentUserAvatar.textContent  = getInitials(myUsername);
     currentUserAvatar.style.background = getAvatarColor(myUsername);
-    currentRoomName.textContent    = currentRoom;
 
     // Switch screens
     joinScreen.classList.add('hidden');
     chatApp.classList.remove('hidden');
 
-    // Update page title
     document.title = `Talq — ${myUsername}`;
 
-    // Reset room list highlight
-    document.querySelectorAll('.room-item').forEach(el => el.classList.remove('active'));
-    document.querySelector('.room-item[data-room="General"]')?.classList.add('active');
+    switchView('friends');
 
     initSocket(token);
   }
@@ -335,6 +340,7 @@
 
     // ── Friends Events ──
     socket.on('allUsers', renderAllUsers);
+    socket.on('searchResults', renderAllUsers);
     socket.on('friendRequests', renderFriendRequests);
     socket.on('friendsList', renderFriendsList);
 
@@ -343,9 +349,12 @@
       showToast('You have a new friend request update!');
     });
     
+    socket.on('onlineStatusChanged', (data) => {
+      socket.emit('getFriends');
+    });
+
     socket.on('friendsUpdate', () => {
       socket.emit('getFriends');
-      socket.emit('getUsers');
     });
 
     socket.on('friendRequestSent', () => {
@@ -470,8 +479,10 @@
   function joinRoom(room, displayName) {
     if (room === currentRoom) return;
 
-    document.querySelectorAll('.room-item').forEach(el => el.classList.remove('active'));
     currentRoom = room;
+    switchView('chat');
+    document.querySelector(`.room-item[data-room="${room}"]`)?.classList.add('active');
+
     currentRoomName.textContent = displayName;
     headerSubtitle.textContent = 'Switching room…';
     typingUsers.clear();
@@ -482,6 +493,33 @@
     socket && socket.emit('join', { room });
     closeSidebarFn();
     showToast(`📍 Joined ${displayName}`);
+  }
+
+
+  function switchView(view) {
+    document.querySelectorAll('.room-item').forEach(el => el.classList.remove('active'));
+    
+    if (view === 'friends') {
+      friendsDashboard.classList.remove('hidden');
+      chatHeader.classList.add('hidden');
+      messagesArea.classList.add('hidden');
+      typingBar.classList.add('hidden');
+      chatFooter.classList.add('hidden');
+      if (navFriendsBtn) navFriendsBtn.classList.add('active');
+    } else {
+      friendsDashboard.classList.add('hidden');
+      chatHeader.classList.remove('hidden');
+      messagesArea.classList.remove('hidden');
+      typingBar.classList.remove('hidden');
+      chatFooter.classList.remove('hidden');
+    }
+  }
+
+  if (navFriendsBtn) {
+    navFriendsBtn.addEventListener('click', () => {
+      currentRoom = null;
+      switchView('friends');
+    });
   }
 
   // ── Room Selection (Global) ──────────────────────────────
@@ -592,14 +630,22 @@
   }
 
   // ── Friends Modal Logic ─────────────────────────────────
-  friendsBtn.addEventListener('click', () => {
+
+  const openAddFriendModalDash = document.getElementById('openAddFriendModalDash');
+  const openAddFriendModalTop = document.getElementById('openAddFriendModalTop');
+
+  function openFriendsModal() {
     friendsModal.classList.remove('hidden');
-    if (socket) {
-      socket.emit('getFriends');
-      socket.emit('getUsers');
-      socket.emit('getFriendRequests');
-    }
-  });
+    // Switch to the 'Find Users' tab automatically
+    document.querySelector('.tab-btn[data-tab="addFriends"]').click();
+  }
+
+  if (openAddFriendModalDash) {
+    openAddFriendModalDash.addEventListener('click', openFriendsModal);
+  }
+  if (openAddFriendModalTop) {
+    openAddFriendModalTop.addEventListener('click', openFriendsModal);
+  }
 
   closeFriendsModal.addEventListener('click', () => {
     friendsModal.classList.add('hidden');
@@ -634,14 +680,39 @@
             <p>ID: ${u.id.substring(0, 8)}...</p>
           </div>
         </div>
-        <button class="action-btn" onclick="sendFriendReq('${u.id}')">Add Friend</button>
+        <button class="action-btn" onclick="sendFriendReq('${u.id}', this)">Add Friend</button>
       `;
       allUsersList.appendChild(li);
     });
   }
 
-  window.sendFriendReq = function(receiverId) {
+  const userSearchBtn = document.getElementById('userSearchBtn');
+  const userSearchInput = document.getElementById('userSearchInput');
+  if (userSearchBtn && userSearchInput) {
+    userSearchBtn.addEventListener('click', () => {
+      const query = userSearchInput.value.trim();
+      if (socket && query) {
+        socket.emit('searchUsers', { query });
+      } else {
+        renderAllUsers([]);
+      }
+    });
+
+    userSearchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        userSearchBtn.click();
+      }
+    });
+  }
+
+  window.sendFriendReq = function(receiverId, btn) {
     if (socket) socket.emit('sendFriendRequest', { receiverId });
+    if (btn) {
+      btn.textContent = 'Sent';
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'default';
+    }
   };
 
   function renderFriendRequests(requests) {
@@ -671,35 +742,85 @@
       `;
       requestsList.appendChild(li);
     });
+
+    if (dashOnlineCount) dashOnlineCount.textContent = onlineCount;
+    if (dashOfflineCount) dashOfflineCount.textContent = offlineCount;
+
+    document.querySelectorAll('.dash-friend-item .dm-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const friendId = btn.getAttribute('data-friend-id');
+        const friendName = btn.getAttribute('data-friend-name');
+        const dmRoomId = 'dm_' + [myUserId, friendId].sort().join('_');
+        joinRoom(dmRoomId, '@' + friendName);
+      });
+    });
   }
 
   window.respondReq = function(requestId, status) {
+
     if (socket) socket.emit('respondFriendRequest', { requestId, status });
   };
 
   function renderFriendsList(friends) {
-    friendsList.innerHTML = '';
+    if (friendsList) friendsList.innerHTML = '';
+    if (dashOnlineList) dashOnlineList.innerHTML = '';
+    if (dashOfflineList) dashOfflineList.innerHTML = '';
     dmList.innerHTML = '';
+    let onlineCount = 0;
+    let offlineCount = 0;
 
     if (!friends.length) {
-      friendsList.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">You have no friends yet.</p>';
+      if (dashOfflineList) {
+        dashOfflineList.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">You have no friends yet.</p>';
+      }
       return;
     }
     
     friends.forEach(f => {
-      // 1. Modal Item
-      const li = document.createElement('li');
-      li.className = 'user-list-item';
-      li.innerHTML = `
+      // 1. Dashboard Item
+      const dLi = document.createElement('li');
+      dLi.className = 'dash-friend-item';
+      dLi.innerHTML = `
         <div class="user-info-large">
-          <div class="user-avatar-sm" style="background:${getAvatarColor(f.username)}">${getInitials(f.username)}</div>
-          <div class="user-info-text">
+          <div class="user-avatar-sm" style="background:${getAvatarColor(f.username)}">${getInitials(f.username)}
+            ${f.isOnline ? '<span class="status-dot online"></span>' : '<span class="status-dot offline"></span>'}
+          </div>
+          <div class="user-info-text dash-friend-info">
             <h4>${escapeHtml(f.username)}</h4>
-            <p>ID: ${f.id.substring(0, 8)}...</p>
+            <p class="${f.isOnline ? 'text-online' : 'text-offline'}">${f.isOnline ? 'Online' : 'Offline'}</p>
           </div>
         </div>
+        <div class="dash-friend-actions">
+          <button class="icon-btn dm-btn" data-friend-id="${f.id}" data-friend-name="${f.username}" title="Message">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+          </button>
+        </div>
       `;
-      friendsList.appendChild(li);
+      
+      if (f.isOnline) {
+        if (dashOnlineList) dashOnlineList.appendChild(dLi);
+        onlineCount++;
+      } else {
+        if (dashOfflineList) dashOfflineList.appendChild(dLi);
+        offlineCount++;
+      }
+
+      // Optional Modal Item
+      if (friendsList) {
+        const li = document.createElement('li');
+        li.className = 'user-list-item';
+        li.innerHTML = `
+          <div class="user-info-large">
+            <div class="user-avatar-sm" style="background:${getAvatarColor(f.username)}">${getInitials(f.username)}</div>
+            <div class="user-info-text">
+              <h4>${escapeHtml(f.username)}</h4>
+              <p>ID: ${f.id.substring(0, 8)}...</p>
+            </div>
+          </div>
+        `;
+        friendsList.appendChild(li);
+      }
 
       // 2. Sidebar DM Accordion
       const friendGroup = document.createElement('div');
