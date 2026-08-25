@@ -375,6 +375,7 @@
     const isOwn   = msg.username === myUsername;
     const group   = document.createElement('div');
     group.className = `msg-group ${isOwn ? 'own' : 'other'}`;
+    group.setAttribute('data-timestamp', msg.timestamp);
     if (!animate) group.style.animation = 'none';
 
     const time     = formatTime(msg.timestamp);
@@ -634,6 +635,17 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
+
+  // ── Auto Cleanup Old Messages (7 Days) ───────────────────
+  setInterval(() => {
+    const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    document.querySelectorAll('.msg-group').forEach(el => {
+      const ts = el.getAttribute('data-timestamp');
+      if (ts && new Date(ts).getTime() < cutoff) {
+        el.remove();
+      }
+    });
+  }, 60 * 1000); // Check every minute
 
   // ── Friends Modal Logic ─────────────────────────────────
 

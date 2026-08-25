@@ -7,7 +7,7 @@ const jwt       = require('jsonwebtoken');
 
 const { 
   verifyUser, createUser, saveMessage, getRoomHistory,
-  getAllUsers, searchUsers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends
+  getAllUsers, searchUsers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends, deleteOldMessages
 } = require('./database');
 
 const app    = express();
@@ -268,6 +268,12 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+// ── Background Jobs ──────────────────────────────────────
+setInterval(() => {
+  deleteOldMessages();
+}, 60 * 60 * 1000); // Check every hour
+deleteOldMessages(); // Run once on startup
 
 // ── Start Server ─────────────────────────────────────────
 const PORT = process.env.PORT || 3000;

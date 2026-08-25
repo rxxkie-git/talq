@@ -137,8 +137,19 @@ async function getFriends(userId) {
   return res.rows;
 }
 
+async function deleteOldMessages() {
+  try {
+    const res = await pool.query(`DELETE FROM messages WHERE timestamp < NOW() - INTERVAL '7 days'`);
+    if (res.rowCount > 0) {
+      console.log(`[DB] Deleted ${res.rowCount} old messages to free up space.`);
+    }
+  } catch (err) {
+    console.error('[DB] deleteOldMessages error:', err.message);
+  }
+}
+
 module.exports = {
   verifyUser, createUser, saveMessage, getRoomHistory,
   getAllUsers, searchUsers, sendFriendRequest, getFriendRequests, respondFriendRequest, getFriends,
-  initDb
+  initDb, deleteOldMessages
 };
