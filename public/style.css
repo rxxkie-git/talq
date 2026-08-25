@@ -596,7 +596,10 @@ select option { background: var(--bg-card); color: var(--text-primary); }
 }
 .messages-inner {
   display: flex; flex-direction: column;
-  gap: 2px; min-height: 100%; justify-content: flex-end;
+  gap: 2px; min-height: 100%;
+}
+.messages-inner::before {
+  content: ""; margin-top: auto;
 }
 
 .welcome-msg {
