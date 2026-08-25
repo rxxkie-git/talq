@@ -372,10 +372,21 @@
     const welcomeMsg = document.getElementById('welcomeMsg');
     if (welcomeMsg) welcomeMsg.style.display = 'none';
 
+    const lastGroup = messagesInner.lastElementChild;
+    const lastTimestamp = lastGroup ? new Date(lastGroup.getAttribute('data-timestamp')).getTime() : 0;
+    const currentTimestamp = new Date(msg.timestamp).getTime();
+    
+    // Group if same user AND within 5 minutes
+    const isConsecutive = lastGroup && 
+                          lastGroup.classList.contains('msg-group') && 
+                          lastGroup.getAttribute('data-username') === msg.username &&
+                          (currentTimestamp - lastTimestamp < 5 * 60 * 1000);
+
     const isOwn   = msg.username === myUsername;
     const group   = document.createElement('div');
-    group.className = `msg-group ${isOwn ? 'own' : 'other'}`;
+    group.className = `msg-group ${isOwn ? 'own' : 'other'} ${isConsecutive ? 'consecutive' : ''}`;
     group.setAttribute('data-timestamp', msg.timestamp);
+    group.setAttribute('data-username', msg.username);
     if (!animate) group.style.animation = 'none';
 
     const time     = formatTime(msg.timestamp);
@@ -392,6 +403,10 @@
       <div class="msg-bubble">${escaped}</div>
     `;
     messagesInner.appendChild(group);
+    
+    if (isConsecutive && lastGroup) {
+      lastGroup.classList.add('has-next');
+    }
   }
 
   function renderEvent(text) {

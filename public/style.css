@@ -621,8 +621,11 @@ select option { background: var(--bg-card); color: var(--text-primary); }
 
 /* Message groups */
 .msg-group { display: flex; flex-direction: column; margin-bottom: 8px; }
+.msg-group.has-next { margin-bottom: 2px; }
 .msg-group.own { align-items: flex-end; }
 .msg-group.other { align-items: flex-start; }
+
+.msg-group.consecutive .msg-meta { display: none; }
 
 .msg-meta {
   display: flex; align-items: center; gap: 7px;
@@ -658,12 +661,31 @@ select option { background: var(--bg-card); color: var(--text-primary); }
   border-bottom-right-radius: 5px;
   box-shadow: 0 4px 20px var(--accent-glow);
 }
+.msg-group.own.has-next .msg-bubble {
+  border-bottom-right-radius: var(--radius-lg);
+}
+.msg-group.own.consecutive .msg-bubble {
+  border-top-right-radius: 5px;
+}
+.msg-group.own.consecutive.has-next .msg-bubble {
+  border-bottom-right-radius: 5px;
+}
+
 .msg-group.other .msg-bubble {
   background: var(--msg-other-bg);
   color: var(--msg-other-text);
   border: 1px solid var(--border);
   border-bottom-left-radius: 5px;
   box-shadow: var(--shadow-sm);
+}
+.msg-group.other.has-next .msg-bubble {
+  border-bottom-left-radius: var(--radius-lg);
+}
+.msg-group.other.consecutive .msg-bubble {
+  border-top-left-radius: 5px;
+}
+.msg-group.other.consecutive.has-next .msg-bubble {
+  border-bottom-left-radius: 5px;
 }
 /* Hover to reveal subtle glow */
 .msg-group.own .msg-bubble:hover { box-shadow: 0 6px 28px var(--accent-glow); }
@@ -732,25 +754,25 @@ select option { background: var(--bg-card); color: var(--text-primary); }
 .input-area {
   flex: 1;
   display: flex; align-items: center; gap: 6px;
-  background: var(--bg-input);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  border-radius: 0;
   padding: 8px 12px;
-  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+  transition: border-color var(--transition);
 }
 .input-area:focus-within {
-  border-color: var(--accent);
-  background: var(--surface);
-  box-shadow: 0 0 0 4px var(--accent-subtle), 0 0 20px rgba(124,106,240,0.08);
+  border-color: var(--text-primary);
+  background: transparent;
+  box-shadow: none;
 }
 .emoji-btn {
   font-size: 1.15rem; flex-shrink: 0;
   background: none; border: none; cursor: pointer;
   width: 34px; height: 34px; display: grid; place-items: center;
-  border-radius: 50%; transition: background 0.15s, transform 0.15s;
+  border-radius: 0; transition: background 0.15s, transform 0.15s;
   color: unset;
 }
-.emoji-btn:hover { background: var(--accent-subtle); transform: scale(1.15); }
+.emoji-btn:hover { background: var(--surface); transform: scale(1.15); }
 .message-input {
   flex: 1; background: none; border: none; outline: none;
   color: var(--text-primary); font-family: inherit;
@@ -761,28 +783,27 @@ select option { background: var(--bg-card); color: var(--text-primary); }
 .message-input::placeholder { color: var(--text-muted); }
 
 .send-btn {
-  width: 44px; height: 44px; border-radius: var(--radius-md); flex-shrink: 0;
+  width: 44px; height: 44px; border-radius: 0; flex-shrink: 0;
   display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  border: none; cursor: pointer;
-  color: white;
-  transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
-  box-shadow: 0 4px 16px var(--accent-glow);
+  background: transparent;
+  border: 1px solid var(--text-muted); cursor: pointer;
+  color: var(--text-primary);
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
+  box-shadow: none;
   position: relative; overflow: hidden;
 }
 .send-btn::before {
-  content: '';
-  position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
-  opacity: 0; transition: opacity var(--transition);
+  display: none;
 }
 .send-btn:hover:not(:disabled) {
-  transform: scale(1.08) translateY(-1px);
-  box-shadow: 0 8px 28px var(--accent-glow);
+  border-color: var(--text-primary);
+  background: var(--surface);
+  transform: none;
+  box-shadow: none;
 }
 .send-btn:hover:not(:disabled)::before { opacity: 1; }
 .send-btn:active:not(:disabled) { transform: scale(0.96); }
-.send-btn:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
+.send-btn:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; border-color: var(--text-muted); }
 
 /* Emoji picker */
 .emoji-picker {
