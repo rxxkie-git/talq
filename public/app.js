@@ -372,6 +372,9 @@
     const welcomeMsg = document.getElementById('welcomeMsg');
     if (welcomeMsg) welcomeMsg.style.display = 'none';
 
+    // Prevent duplicate rendering
+    if (msg.id && document.querySelector(`.msg-group[data-id="${msg.id}"]`)) return;
+
     const lastGroup = messagesInner.lastElementChild;
     const lastTimestamp = lastGroup ? new Date(lastGroup.getAttribute('data-timestamp')).getTime() : 0;
     const currentTimestamp = new Date(msg.timestamp).getTime();
@@ -385,6 +388,7 @@
     const isOwn   = msg.username === myUsername;
     const group   = document.createElement('div');
     group.className = `msg-group ${isOwn ? 'own' : 'other'} ${isConsecutive ? 'consecutive' : ''}`;
+    group.setAttribute('data-id', msg.id || '');
     group.setAttribute('data-timestamp', msg.timestamp);
     group.setAttribute('data-username', msg.username);
     if (!animate) group.style.animation = 'none';

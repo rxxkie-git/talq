@@ -116,6 +116,7 @@ io.on('connection', (socket) => {
   if (!connectedUsers[socket.userId]) {
     connectedUsers[socket.userId] = new Set();
     io.emit('onlineStatusChanged', { userId: socket.userId, isOnline: true });
+    io.emit('friendsUpdate');
   }
   connectedUsers[socket.userId].add(socket.id);
 
@@ -161,30 +162,122 @@ io.on('connection', (socket) => {
   socket.on('chatMessage', ({ message, room }) => {
     if (!socket.username) return;
 
+    const targetRoom = room || socket.room || 'General';
     const msgData = {
       id: Date.now() + Math.random().toString(36).substr(2, 5),
       username: socket.username,
       message,
-      room: room || socket.room || 'General',
+      room: targetRoom,
       timestamp: new Date().toISOString(),
     };
 
     // Persist to DB (async, don't block broadcast)
     saveMessage(msgData).catch(err => console.error('[DB] saveMessage error:', err.message));
 
-    // Broadcast to room
-    io.to(msgData.room).emit('chatMessage', msgData);
-    console.log(`[DEBUG] ${msgData.username} sent message to room ${msgData.room}`);
-    console.log(`[MSG] [${msgData.room}] ${msgData.username}: ${msgData.message}`);
+    // Broadcast to room members without duplicate delivery
+    const sentSockets = new Set();
+    const roomSockets = io.sockets.adapter.rooms.get(targetRoom);
+    if (roomSockets) {
+      for (const sid of roomSockets) {
+        io.to(sid).emit('chatMessage', msgData);
+        sentSockets.add(sid);
+      }
+    }
+
+    // Direct message routing to participants' sockets who weren't in the room
+    if (targetRoom.startsWith('dm_')) {
+      const parts = targetRoom.split('_');
+      if (parts.length >= 4) {
+        const id1 = parts[1];
+        const id2 = parts[2];
+        [id1, id2].forEach(uid => {
+          if (connectedUsers[uid]) {
+            connectedUsers[uid].forEach(sid => {
+              if (!sentSockets.has(sid)) {
+                io.to(sid).emit('chatMessage', msgData);
+                sentSockets.add(sid);
+              }
+            });
+          }
+        });
+      }
+    }
+
+    if (!sentSockets.has(socket.id)) {
+      socket.emit('chatMessage', msgData);
+      sentSockets.add(socket.id);
+    }
+
+    console.log(`[MSG] [${targetRoom}] ${msgData.username}: ${msgData.message}`);
   });
 
   // Typing indicators
   socket.on('typing', ({ room }) => {
-    socket.to(room || socket.room).emit('typing', { username: socket.username });
+    const targetRoom = room || socket.room;
+    if (!targetRoom) return;
+
+    const sentSockets = new Set([socket.id]);
+    const roomSockets = io.sockets.adapter.rooms.get(targetRoom);
+    if (roomSockets) {
+      for (const sid of roomSockets) {
+        if (!sentSockets.has(sid)) {
+          io.to(sid).emit('typing', { username: socket.username, room: targetRoom });
+          sentSockets.add(sid);
+        }
+      }
+    }
+
+    if (targetRoom.startsWith('dm_')) {
+      const parts = targetRoom.split('_');
+      if (parts.length >= 4) {
+        const id1 = parts[1];
+        const id2 = parts[2];
+        [id1, id2].forEach(uid => {
+          if (uid !== socket.userId && connectedUsers[uid]) {
+            connectedUsers[uid].forEach(sid => {
+              if (!sentSockets.has(sid)) {
+                io.to(sid).emit('typing', { username: socket.username, room: targetRoom });
+                sentSockets.add(sid);
+              }
+            });
+          }
+        });
+      }
+    }
   });
 
   socket.on('stopTyping', ({ room }) => {
-    socket.to(room || socket.room).emit('stopTyping', { username: socket.username });
+    const targetRoom = room || socket.room;
+    if (!targetRoom) return;
+
+    const sentSockets = new Set([socket.id]);
+    const roomSockets = io.sockets.adapter.rooms.get(targetRoom);
+    if (roomSockets) {
+      for (const sid of roomSockets) {
+        if (!sentSockets.has(sid)) {
+          io.to(sid).emit('stopTyping', { username: socket.username, room: targetRoom });
+          sentSockets.add(sid);
+        }
+      }
+    }
+
+    if (targetRoom.startsWith('dm_')) {
+      const parts = targetRoom.split('_');
+      if (parts.length >= 4) {
+        const id1 = parts[1];
+        const id2 = parts[2];
+        [id1, id2].forEach(uid => {
+          if (uid !== socket.userId && connectedUsers[uid]) {
+            connectedUsers[uid].forEach(sid => {
+              if (!sentSockets.has(sid)) {
+                io.to(sid).emit('stopTyping', { username: socket.username, room: targetRoom });
+                sentSockets.add(sid);
+              }
+            });
+          }
+        });
+      }
+    }
   });
 
   // ── Friends & Users Events ───────────────────────────────
@@ -253,6 +346,7 @@ io.on('connection', (socket) => {
       if (connectedUsers[socket.userId].size === 0) {
         delete connectedUsers[socket.userId];
         io.emit('onlineStatusChanged', { userId: socket.userId, isOnline: false });
+        io.emit('friendsUpdate');
       }
     }
     
